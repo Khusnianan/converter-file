@@ -1,18 +1,31 @@
 import streamlit as st
 import fitz  # PyMuPDF
 import pdfplumber
-from docx import Document
 import pytesseract
 from PIL import Image
 import os
 import tempfile
 from io import BytesIO
+from docx import Document
+import re
 
 st.set_page_config(page_title="PDF/Gambar ke Word Converter", layout="centered")
 
-st.title("📄 PDF/Gambar ke Word Converter (dengan Preview & Seleksi Teks)")
+st.title("📄 PDF/Gambar ke Word Converter (Sederhana & Lanjutan)")
 
-menu = st.radio("Pilih tipe file yang ingin dikonversi:", ["PDF", "Gambar (OCR)"])
+mode = st.radio("Pilih mode konversi:", ["Sederhana (otomatis)", "Lanjutan (pilih teks)"])
+
+uploaded_file = st.file_uploader("Unggah file PDF atau gambar (JPG, PNG):", type=["pdf", "jpg", "jpeg", "png"])
+
+def sanitize_text(text):
+    text = text.replace('\x00', '')
+    text = re.sub(r'[\x01-\x08\x0b-\x1f\x7f]', '', text)
+    return text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
+
+def extract_text_from_image(image):
+    text = pytesseract.image_to_string(image)
+    paragraphs = [para for para in text.split("\n") if para.strip()]
+    return paragraphs
 
 def display_docx_content(doc_buffer):
     from docx import Document
@@ -46,100 +59,112 @@ def checkbox_group(label, options, default=[], key_prefix=""):
             result.append(option)
     return result
 
-def extract_text_from_image(image):
-    text = pytesseract.image_to_string(image)
-    paragraphs = [para for para in text.split("\n") if para.strip()]
-    return paragraphs
+if uploaded_file:
+    file_name = uploaded_file.name.lower()
 
-if menu == "PDF":
-    uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
+    if mode == "Sederhana (otomatis)":
+        use_ocr = st.checkbox("Aktifkan OCR (untuk file hasil scan/foto/gambar)", value=False)
 
-    use_ocr = st.checkbox("Aktifkan OCR untuk gambar (misal screenshot kode)", value=True)
-
-    if uploaded_file:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(uploaded_file.read())
-            tmp_pdf_path = tmp_file.name
-
-        with pdfplumber.open(tmp_pdf_path) as pdf:
-            total_pages = len(pdf.pages)
-            st.info(f"📄 File memiliki {total_pages} halaman.")
-
-            selected_pages = st.multiselect(
-                "Pilih halaman yang ingin dikonversi:",
-                options=list(range(1, total_pages + 1)),
-                default=list(range(1, total_pages + 1)),
-            )
-
-            if selected_pages:
-                all_extracted_text = []
-                with fitz.open(tmp_pdf_path) as doc:
-                    for page_num in selected_pages:
-                        # Ekstrak teks biasa
-                        page = pdf.pages[page_num - 1]
-                        text = page.extract_text() or ""
-
-                        # Tambahkan hasil OCR dari gambar jika diaktifkan
-                        img_text = ""
-                        images = page.images
-                        if use_ocr and (not text.strip() or images):
-                            pix = doc.load_page(page_num - 1).get_pixmap()
-                            image = Image.open(BytesIO(pix.tobytes()))
-                            img_text = pytesseract.image_to_string(image)
-
-                        combined_text = text + "\n" + img_text if img_text else text
-                        all_extracted_text.append((page_num, combined_text.strip()))
-
-                st.markdown("### 🔍 Pratinjau & Pilih Teks")
-                selected_text = []
-
-                for page_num, text in all_extracted_text:
-                    with st.expander(f"Halaman {page_num}"):
-                        paragraphs = text.split("\n")
-                        options = [f"{para}" for para in paragraphs if para.strip()]
-                        chosen = checkbox_group("Teks dari halaman ini:", options, key_prefix=f"p{page_num}")
-                        selected_text.extend(chosen)
-
-                if selected_text:
-                    doc = Document()
-                    for para in selected_text:
-                        doc.add_paragraph(para)
-
-                    preview_buffer = BytesIO()
-                    doc.save(preview_buffer)
-                    preview_buffer.seek(0)
-
-                    # Tampilkan pratinjau isi Word
-                    display_docx_content(preview_buffer)
-
-                    output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
-                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-            else:
-                st.warning("Silakan pilih minimal satu halaman.")
-
-elif menu == "Gambar (OCR)":
-    uploaded_image = st.file_uploader("Unggah gambar (JPG, PNG)", type=["png", "jpg", "jpeg"])
-
-    if uploaded_image:
-        image = Image.open(uploaded_image)
-        st.image(image, caption="Gambar yang diunggah", use_column_width=True)
-
-        paragraphs = extract_text_from_image(image)
-
-        st.markdown("### 🔍 Pratinjau Teks Hasil OCR")
-        selected_text = checkbox_group("Pilih teks yang ingin dikonversi:", paragraphs, key_prefix="ocr")
-
-        if selected_text:
+        if st.button("🔁 Convert to Word"):
             doc = Document()
-            for para in selected_text:
-                doc.add_paragraph(para)
+            try:
+                if file_name.endswith((".jpg", ".jpeg", ".png")):
+                    image = Image.open(uploaded_file)
+                    text = pytesseract.image_to_string(image)
+                    clean_text = sanitize_text(text)
+                    doc.add_paragraph(clean_text)
 
-            preview_buffer = BytesIO()
-            doc.save(preview_buffer)
-            preview_buffer.seek(0)
+                elif file_name.endswith(".pdf"):
+                    uploaded_file.seek(0)
+                    if use_ocr:
+                        import pdf2image
+                        images = pdf2image.convert_from_bytes(uploaded_file.read())
+                        for img in images:
+                            text = pytesseract.image_to_string(img)
+                            clean_text = sanitize_text(text)
+                            doc.add_paragraph(clean_text)
+                    else:
+                        with pdfplumber.open(uploaded_file) as pdf:
+                            for page in pdf.pages:
+                                text = page.extract_text()
+                                if text:
+                                    clean_text = sanitize_text(text)
+                                    doc.add_paragraph(clean_text)
 
-            # Tampilkan pratinjau isi Word
-            display_docx_content(preview_buffer)
+                buffer = BytesIO()
+                doc.save(buffer)
+                buffer.seek(0)
 
-            output_name = os.path.splitext(uploaded_image.name)[0] + " (konversi).docx"
-            st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
+                st.download_button("📥 Download Word", data=buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+            except Exception as e:
+                st.error(f"Terjadi kesalahan saat konversi: {e}")
+
+    elif mode == "Lanjutan (pilih teks)":
+        use_ocr = st.checkbox("Aktifkan OCR untuk gambar (misal screenshot kode)", value=True)
+
+        if file_name.endswith(".pdf"):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                tmp_file.write(uploaded_file.read())
+                tmp_pdf_path = tmp_file.name
+
+            with pdfplumber.open(tmp_pdf_path) as pdf:
+                total_pages = len(pdf.pages)
+                st.info(f"📄 File memiliki {total_pages} halaman.")
+
+                selected_pages = st.multiselect("Pilih halaman yang ingin dikonversi:", list(range(1, total_pages + 1)), default=list(range(1, total_pages + 1)))
+
+                if selected_pages:
+                    all_extracted_text = []
+                    with fitz.open(tmp_pdf_path) as doc:
+                        for page_num in selected_pages:
+                            page = pdf.pages[page_num - 1]
+                            text = page.extract_text() or ""
+                            img_text = ""
+                            images = page.images
+                            if use_ocr and (not text.strip() or images):
+                                pix = doc.load_page(page_num - 1).get_pixmap()
+                                image = Image.open(BytesIO(pix.tobytes()))
+                                img_text = pytesseract.image_to_string(image)
+                            combined_text = text + "\n" + img_text if img_text else text
+                            all_extracted_text.append((page_num, combined_text.strip()))
+
+                    st.markdown("### 🔍 Pratinjau & Pilih Teks")
+                    selected_text = []
+                    for page_num, text in all_extracted_text:
+                        with st.expander(f"Halaman {page_num}"):
+                            paragraphs = text.split("\n")
+                            options = [para for para in paragraphs if para.strip()]
+                            chosen = checkbox_group("Teks dari halaman ini:", options, key_prefix=f"p{page_num}")
+                            selected_text.extend(chosen)
+
+                    if selected_text:
+                        doc = Document()
+                        for para in selected_text:
+                            doc.add_paragraph(para)
+                        buffer = BytesIO()
+                        doc.save(buffer)
+                        buffer.seek(0)
+                        display_docx_content(buffer)
+                        output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
+                        st.download_button("⬇️ Unduh Hasil Word", data=buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                else:
+                    st.warning("Pilih minimal satu halaman.")
+
+        elif file_name.endswith((".jpg", ".jpeg", ".png")):
+            image = Image.open(uploaded_file)
+            st.image(image, caption="Gambar yang diunggah", use_column_width=True)
+            paragraphs = extract_text_from_image(image)
+            st.markdown("### 🔍 Pratinjau Teks Hasil OCR")
+            selected_text = checkbox_group("Pilih teks yang ingin dikonversi:", paragraphs, key_prefix="ocr")
+            if selected_text:
+                doc = Document()
+                for para in selected_text:
+                    doc.add_paragraph(para)
+                buffer = BytesIO()
+                doc.save(buffer)
+                buffer.seek(0)
+                display_docx_content(buffer)
+                output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
+                st.download_button("⬇️ Unduh Hasil Word", data=buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
