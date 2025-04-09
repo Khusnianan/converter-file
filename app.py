@@ -16,7 +16,7 @@ def sanitize_text(text):
 # Konfigurasi halaman Streamlit
 st.set_page_config(page_title="PDF / Gambar ke Word", layout="centered")
 
-# Header cantik
+# Header
 st.markdown("""
 <h1 style="text-align: center; color: #2E8B57;">📄 PDF / Gambar ➜ Word Converter</h1>
 <p style="text-align: center; font-size: 18px;">Mudah mengubah file <strong>PDF, JPG, PNG</strong> menjadi <strong>Word (.docx)</strong>!</p>
@@ -112,7 +112,7 @@ if uploaded_file:
 
             # Nama file output
             file_base = uploaded_file.name.rsplit(".", 1)[0]
-            output_filename = f"{file_base} (konversi).docx"
+            output_filename = f"{file_base} (convert).docx"
 
             # Download button
             st.download_button(
