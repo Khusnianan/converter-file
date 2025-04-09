@@ -40,35 +40,45 @@ if uploaded_file and st.button("🔁 Convert to Word"):
     file_name = uploaded_file.name.lower()
 
     try:
+        progress = st.progress(0)
+        status_text = st.empty()
+
         # Gambar
         if file_name.endswith((".jpg", ".jpeg", ".png")):
-            st.info("📷 Memproses gambar dengan OCR...")
+            status_text.info("📷 Memproses gambar dengan OCR...")
             image = Image.open(uploaded_file)
             text = pytesseract.image_to_string(image)
             clean_text = sanitize_text(text)
             doc.add_paragraph(clean_text)
-            st.success("✅ Konversi gambar selesai!")
+            status_text.success("✅ Konversi gambar selesai!")
+            progress.progress(100)
 
         # PDF
         elif file_name.endswith(".pdf"):
             if use_ocr:
-                st.info("📄 Memproses PDF dengan OCR...")
+                status_text.info("📄 Memproses PDF dengan OCR...")
                 images = convert_from_bytes(uploaded_file.read())
+                total = len(images)
                 for i, img in enumerate(images):
                     text = pytesseract.image_to_string(img)
                     clean_text = sanitize_text(text)
                     doc.add_paragraph(clean_text)
-                    st.success(f"OCR halaman {i+1} selesai")
+                    progress.progress((i + 1) / total)
+                    status_text.info(f"OCR halaman {i + 1} dari {total}")
+                status_text.success("✅ Semua halaman diproses!")
             else:
-                st.info("📄 Mengekstrak teks langsung dari PDF...")
+                status_text.info("📄 Mengekstrak teks langsung dari PDF...")
                 uploaded_file.seek(0)
                 with pdfplumber.open(uploaded_file) as pdf:
+                    total = len(pdf.pages)
                     for i, page in enumerate(pdf.pages):
                         text = page.extract_text()
                         if text:
                             clean_text = sanitize_text(text)
                             doc.add_paragraph(clean_text)
-                        st.success(f"Ekstraksi halaman {i+1} selesai")
+                        progress.progress((i + 1) / total)
+                        status_text.info(f"Ekstraksi halaman {i + 1} dari {total}")
+                    status_text.success("✅ Semua halaman selesai diekstrak!")
 
         else:
             st.warning("❌ Jenis file tidak didukung.")
