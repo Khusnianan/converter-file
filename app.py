@@ -72,7 +72,7 @@ if uploaded_file and st.button("🔁 Convert to Word"):
         st.download_button(
             label="📥 Download Word File",
             data=buffer,
-            file_name=f"{file_base} (konversi).docx",
+            file_name=f"{file_base} (convert).docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
