@@ -54,6 +54,8 @@ def extract_text_from_image(image):
 if menu == "PDF":
     uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
 
+    use_ocr = st.checkbox("Aktifkan OCR untuk gambar (misal screenshot kode)", value=True)
+
     if uploaded_file:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             tmp_file.write(uploaded_file.read())
@@ -77,10 +79,10 @@ if menu == "PDF":
                         page = pdf.pages[page_num - 1]
                         text = page.extract_text() or ""
 
-                        # Tambahkan hasil OCR dari gambar jika ada
+                        # Tambahkan hasil OCR dari gambar jika diaktifkan
                         img_text = ""
                         images = page.images
-                        if not text.strip() or images:
+                        if use_ocr and (not text.strip() or images):
                             pix = doc.load_page(page_num - 1).get_pixmap()
                             image = Image.open(BytesIO(pix.tobytes()))
                             img_text = pytesseract.image_to_string(image)
