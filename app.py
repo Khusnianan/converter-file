@@ -1,0 +1,58 @@
+import streamlit as st
+import pdfplumber
+import pytesseract
+from pdf2image import convert_from_bytes
+from docx import Document
+import io
+from PIL import Image
+
+st.set_page_config(page_title="PDF / Gambar to Word Converter", layout="centered")
+st.title("📄 PDF / Gambar ke Word Converter")
+st.write("Upload PDF atau gambar yang mengandung teks, dan kami akan ubah jadi file Word (.docx)")
+
+uploaded_file = st.file_uploader("Upload file PDF atau Gambar", type=["pdf", "jpg", "jpeg", "png"])
+use_ocr = st.checkbox("Gunakan OCR (pakai ini untuk hasil scan atau gambar)")
+
+if uploaded_file and st.button("Convert to Word"):
+    doc = Document()
+
+    file_type = uploaded_file.name.lower()
+    
+    if file_type.endswith((".jpg", ".jpeg", ".png")):
+        st.info("Mendeteksi file gambar...")
+        image = Image.open(uploaded_file)
+        text = pytesseract.image_to_string(image)
+        doc.add_paragraph(text)
+        st.success("OCR dari gambar berhasil!")
+
+    elif file_type.endswith(".pdf"):
+        if use_ocr:
+            st.info("PDF akan diproses dengan OCR...")
+            images = convert_from_bytes(uploaded_file.read())
+            for i, img in enumerate(images):
+                text = pytesseract.image_to_string(img)
+                doc.add_paragraph(text)
+                st.success(f"OCR halaman {i+1} selesai")
+        else:
+            st.info("Ekstrak teks dari PDF...")
+            uploaded_file.seek(0)
+            with pdfplumber.open(uploaded_file) as pdf:
+                for i, page in enumerate(pdf.pages):
+                    text = page.extract_text()
+                    if text:
+                        doc.add_paragraph(text)
+                    st.success(f"Ekstraksi halaman {i+1} selesai")
+    else:
+        st.warning("Jenis file tidak didukung!")
+
+    # Simpan ke Word
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    st.download_button(
+        label="📥 Download Word File",
+        data=buffer,
+        file_name="hasil_konversi.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
