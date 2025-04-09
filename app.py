@@ -28,17 +28,20 @@ def display_docx_content(doc_buffer):
 
 def checkbox_group(label, options, default=[], key_prefix=""):
     st.markdown(f"**{label}**")
-    all_state = st.checkbox("Pilih Semua", key=key_prefix + "_all")
-    clear_state = st.checkbox("Kosongkan Semua", key=key_prefix + "_none")
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        all_state = st.button("✅ Pilih Semua", key=key_prefix + "_all")
+    with col2:
+        clear_state = st.button("❌ Kosongkan Semua", key=key_prefix + "_none")
+
     result = []
     for i, option in enumerate(options):
         option_key = f"{key_prefix}_{i}"
+        checked = option in default
         if all_state:
             checked = True
         elif clear_state:
             checked = False
-        else:
-            checked = option in default
         if st.checkbox(option, key=option_key, value=checked):
             result.append(option)
     return result
@@ -77,7 +80,7 @@ if menu == "PDF":
                 for page_num, text in all_extracted_text:
                     with st.expander(f"Halaman {page_num}"):
                         paragraphs = text.split("\n")
-                        options = [f"[Hal. {page_num}] {para}" for para in paragraphs if para.strip()]
+                        options = [f"{para}" for para in paragraphs if para.strip()]
                         chosen = checkbox_group("Teks dari halaman ini:", options, key_prefix=f"p{page_num}")
                         selected_text.extend(chosen)
 
@@ -90,11 +93,11 @@ if menu == "PDF":
                     doc.save(preview_buffer)
                     preview_buffer.seek(0)
 
-                    output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
-                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-
                     # Tampilkan pratinjau isi Word
                     display_docx_content(preview_buffer)
+
+                    output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
+                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             else:
                 st.warning("Silakan pilih minimal satu halaman.")
 
@@ -121,8 +124,8 @@ elif menu == "Gambar (OCR)":
             doc.save(preview_buffer)
             preview_buffer.seek(0)
 
-            output_name = os.path.splitext(uploaded_image.name)[0] + " (konversi).docx"
-            st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-
             # Tampilkan pratinjau isi Word
             display_docx_content(preview_buffer)
+
+            output_name = os.path.splitext(uploaded_image.name)[0] + " (konversi).docx"
+            st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
