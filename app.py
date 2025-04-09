@@ -51,24 +51,41 @@ if uploaded_file and st.button("🔁 Convert to Word"):
 
         # PDF
         elif file_name.endswith(".pdf"):
-            if use_ocr:
-                st.info("📄 Memproses PDF dengan OCR...")
-                images = convert_from_bytes(uploaded_file.read())
-                for i, img in enumerate(images):
-                    text = pytesseract.image_to_string(img)
-                    clean_text = sanitize_text(text)
-                    doc.add_paragraph(clean_text)
-                    st.success(f"OCR halaman {i+1} selesai")
-            else:
-                st.info("📄 Mengekstrak teks langsung dari PDF...")
-                uploaded_file.seek(0)
-                with pdfplumber.open(uploaded_file) as pdf:
-                    for i, page in enumerate(pdf.pages):
-                        text = page.extract_text()
-                        if text:
-                            clean_text = sanitize_text(text)
-                            doc.add_paragraph(clean_text)
-                        st.success(f"Ekstraksi halaman {i+1} selesai")
+            uploaded_file.seek(0)
+            with pdfplumber.open(uploaded_file) as pdf:
+                total_pages = len(pdf.pages)
+                st.info(f"📄 File memiliki {total_pages} halaman.")
+
+                # Pilih halaman yang ingin dikonversi
+                selected_pages = st.multiselect(
+                    "Pilih halaman yang ingin dikonversi:",
+                    options=list(range(1, total_pages + 1)),
+                    default=list(range(1, total_pages + 1)),
+                )
+
+                if not selected_pages:
+                    st.warning("⚠️ Silakan pilih minimal satu halaman.")
+                    st.stop()
+
+                if use_ocr:
+                    st.info("📄 Memproses PDF dengan OCR...")
+                    images = convert_from_bytes(uploaded_file.read(), first_page=min(selected_pages), last_page=max(selected_pages))
+                    for i, page_num in enumerate(selected_pages):
+                        text = pytesseract.image_to_string(images[i])
+                        clean_text = sanitize_text(text)
+                        doc.add_paragraph(clean_text)
+                        with st.expander(f"Pratinjau Halaman {page_num}"):
+                            st.code(clean_text)
+                else:
+                    uploaded_file.seek(0)
+                    with pdfplumber.open(uploaded_file) as pdf:
+                        for page_num in selected_pages:
+                            text = pdf.pages[page_num - 1].extract_text()
+                            if text:
+                                clean_text = sanitize_text(text)
+                                doc.add_paragraph(clean_text)
+                                with st.expander(f"Pratinjau Halaman {page_num}"):
+                                    st.code(clean_text)
 
         else:
             st.warning("❌ Jenis file tidak didukung.")
