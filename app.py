@@ -61,7 +61,8 @@ if menu == "PDF":
                     doc.save(preview_buffer)
                     preview_buffer.seek(0)
 
-                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=os.path.splitext(uploaded_file.name)[0] + " (konversi).docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
+                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                     st.markdown("### 📄 Pratinjau Dokumen Word")
                     st.download_button("📥 Pratinjau Word (klik kanan > buka di Word)", data=preview_buffer, file_name="preview.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             else:
