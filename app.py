@@ -6,10 +6,11 @@ import pytesseract
 from PIL import Image
 import os
 import tempfile
+from io import BytesIO
 
 st.set_page_config(page_title="PDF/Gambar ke Word Converter", layout="centered")
 
-st.title("📄 PDF/Gambar ke Word Converter (dengan Preview dan Seleksi)")
+st.title("📄 PDF/Gambar ke Word Converter (dengan Preview Word dan Seleksi)")
 
 menu = st.radio("Pilih tipe file yang ingin dikonversi:", ["PDF", "Gambar (OCR)"])
 
@@ -52,16 +53,17 @@ if menu == "PDF":
                                 selected_text.append(para)
 
                 if selected_text:
-                    if st.button("📥 Konversi dan Unduh Word"):
-                        doc = Document()
-                        for para in selected_text:
-                            doc.add_paragraph(para)
+                    doc = Document()
+                    for para in selected_text:
+                        doc.add_paragraph(para)
 
-                        output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
-                            doc.save(tmp_docx.name)
-                            with open(tmp_docx.name, "rb") as f:
-                                st.download_button("⬇️ Unduh Hasil Word", data=f, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    preview_buffer = BytesIO()
+                    doc.save(preview_buffer)
+                    preview_buffer.seek(0)
+
+                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=os.path.splitext(uploaded_file.name)[0] + " (konversi).docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    st.markdown("### 📄 Pratinjau Dokumen Word")
+                    st.download_button("📥 Pratinjau Word (klik kanan > buka di Word)", data=preview_buffer, file_name="preview.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             else:
                 st.warning("Silakan pilih minimal satu halaman.")
 
@@ -84,13 +86,15 @@ elif menu == "Gambar (OCR)":
                     selected_text.append(para)
 
         if selected_text:
-            if st.button("📥 Konversi dan Unduh Word"):
-                doc = Document()
-                for para in selected_text:
-                    doc.add_paragraph(para)
+            doc = Document()
+            for para in selected_text:
+                doc.add_paragraph(para)
 
-                output_name = os.path.splitext(uploaded_image.name)[0] + " (konversi).docx"
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
-                    doc.save(tmp_docx.name)
-                    with open(tmp_docx.name, "rb") as f:
-                        st.download_button("⬇️ Unduh Hasil Word", data=f, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            preview_buffer = BytesIO()
+            doc.save(preview_buffer)
+            preview_buffer.seek(0)
+
+            output_name = os.path.splitext(uploaded_image.name)[0] + " (konversi).docx"
+            st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            st.markdown("### 📄 Pratinjau Dokumen Word")
+            st.download_button("📥 Pratinjau Word (klik kanan > buka di Word)", data=preview_buffer, file_name="preview.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
