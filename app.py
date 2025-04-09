@@ -71,17 +71,16 @@ if menu == "PDF":
 
             if selected_pages:
                 all_extracted_text = []
-                for page_num in selected_pages:
-                    page = pdf.pages[page_num - 1]
-                    text = page.extract_text()
-                    if not text:
-                        # Coba OCR dari gambar halaman
-                        with fitz.open(tmp_pdf_path) as doc:
+                with fitz.open(tmp_pdf_path) as doc:
+                    for page_num in selected_pages:
+                        page = pdf.pages[page_num - 1]
+                        text = page.extract_text()
+                        if not text:
+                            # Gunakan OCR jika teks tidak ditemukan
                             pix = doc.load_page(page_num - 1).get_pixmap()
                             image = Image.open(BytesIO(pix.tobytes()))
-                            ocr_text = pytesseract.image_to_string(image)
-                            text = ocr_text or "[Halaman kosong atau tidak bisa dibaca]"
-                    all_extracted_text.append((page_num, text.strip()))
+                            text = pytesseract.image_to_string(image)
+                        all_extracted_text.append((page_num, text.strip()))
 
                 st.markdown("### 🔍 Pratinjau & Pilih Teks")
                 selected_text = []
