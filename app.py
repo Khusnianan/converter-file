@@ -9,19 +9,30 @@ import re
 
 # Fungsi sanitasi teks agar aman dimasukkan ke dokumen Word
 def sanitize_text(text):
-    # Hapus NULL byte dan karakter kontrol (selain newline dan tab)
-    text = text.replace('\x00', '')
-    text = re.sub(r'[\x01-\x08\x0b-\x1f\x7f]', '', text)
+    text = text.replace('\x00', '')  # Hapus NULL byte
+    text = re.sub(r'[\x01-\x08\x0b-\x1f\x7f]', '', text)  # Hapus karakter kontrol
     return text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
 
 # Konfigurasi halaman Streamlit
 st.set_page_config(page_title="PDF / Gambar ke Word", layout="centered")
-st.title("📄 PDF / Gambar ke Word Converter")
-st.write("Upload file PDF atau gambar (JPG/PNG), lalu konversi ke file Word (.docx) secara otomatis.")
 
-# Upload file
-uploaded_file = st.file_uploader("Unggah file PDF atau Gambar", type=["pdf", "jpg", "jpeg", "png"])
-use_ocr = st.checkbox("Gunakan OCR (untuk file hasil scan/gambar)")
+# Header cantik
+st.markdown("""
+<h1 style="text-align: center; color: #2E8B57;">📄 PDF / Gambar ➜ Word Converter</h1>
+<p style="text-align: center; font-size: 18px;">Mudah mengubah file <strong>PDF, JPG, PNG</strong> menjadi <strong>Word (.docx)</strong>!</p>
+<hr>
+""", unsafe_allow_html=True)
+
+# Upload
+st.markdown("### 📁 Unggah File")
+uploaded_file = st.file_uploader("Pilih file PDF, JPG, atau PNG untuk dikonversi.", type=["pdf", "jpg", "jpeg", "png"])
+
+# OCR info
+st.markdown("#### 🧠 Apakah ini file hasil scan atau gambar?")
+use_ocr = st.checkbox("Aktifkan OCR (untuk file hasil scan/foto/gambar)", value=False)
+st.caption("✅ Gunakan OCR jika file hasil scan atau tidak bisa disalin teksnya.")
+
+st.markdown("---")
 
 # Tombol konversi
 if uploaded_file and st.button("🔁 Convert to Word"):
@@ -29,19 +40,19 @@ if uploaded_file and st.button("🔁 Convert to Word"):
     file_name = uploaded_file.name.lower()
 
     try:
-        # Proses Gambar
+        # Gambar
         if file_name.endswith((".jpg", ".jpeg", ".png")):
-            st.info("📷 Menggunakan OCR untuk gambar...")
+            st.info("📷 Memproses gambar dengan OCR...")
             image = Image.open(uploaded_file)
             text = pytesseract.image_to_string(image)
             clean_text = sanitize_text(text)
             doc.add_paragraph(clean_text)
             st.success("✅ Konversi gambar selesai!")
 
-        # Proses PDF
+        # PDF
         elif file_name.endswith(".pdf"):
             if use_ocr:
-                st.info("📄 PDF akan diproses dengan OCR...")
+                st.info("📄 Memproses PDF dengan OCR...")
                 images = convert_from_bytes(uploaded_file.read())
                 for i, img in enumerate(images):
                     text = pytesseract.image_to_string(img)
@@ -63,16 +74,20 @@ if uploaded_file and st.button("🔁 Convert to Word"):
             st.warning("❌ Jenis file tidak didukung.")
             st.stop()
 
-        # Simpan ke .docx
+        # Simpan ke file .docx
         buffer = io.BytesIO()
         doc.save(buffer)
         buffer.seek(0)
 
+        # Nama file output
         file_base = uploaded_file.name.rsplit(".", 1)[0]
+        output_filename = f"{file_base} (konversi).docx"
+
+        # Download button
         st.download_button(
             label="📥 Download Word File",
             data=buffer,
-            file_name=f"{file_base} (convert).docx",
+            file_name=output_filename,
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
