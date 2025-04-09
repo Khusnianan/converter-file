@@ -55,16 +55,20 @@ if menu == "PDF":
                 if selected_text:
                     doc = Document()
                     for para in selected_text:
-                        doc.add_paragraph(para)
+                        try:
+                            doc.add_paragraph(para)
+                        except Exception:
+                            doc.add_paragraph("[Teks tidak valid]")
 
                     preview_buffer = BytesIO()
                     doc.save(preview_buffer)
                     preview_buffer.seek(0)
 
                     output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
-                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                     st.markdown("### 📄 Pratinjau Dokumen Word")
-                    st.download_button("📥 Pratinjau Word (klik kanan > buka di Word)", data=preview_buffer, file_name="preview.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    st.download_button("📥 Pratinjau Word", data=preview_buffer, file_name="preview.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             else:
                 st.warning("Silakan pilih minimal satu halaman.")
 
@@ -89,13 +93,17 @@ elif menu == "Gambar (OCR)":
         if selected_text:
             doc = Document()
             for para in selected_text:
-                doc.add_paragraph(para)
+                try:
+                    doc.add_paragraph(para)
+                except Exception:
+                    doc.add_paragraph("[Teks tidak valid]")
 
             preview_buffer = BytesIO()
             doc.save(preview_buffer)
             preview_buffer.seek(0)
 
             output_name = os.path.splitext(uploaded_image.name)[0] + " (konversi).docx"
-            st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
             st.markdown("### 📄 Pratinjau Dokumen Word")
-            st.download_button("📥 Pratinjau Word (klik kanan > buka di Word)", data=preview_buffer, file_name="preview.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            st.download_button("📥 Pratinjau Word", data=preview_buffer, file_name="preview.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+            st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
