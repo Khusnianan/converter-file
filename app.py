@@ -1,95 +1,63 @@
 import streamlit as st
+import fitz  # PyMuPDF
 import pdfplumber
-import pytesseract
-from pdf2image import convert_from_bytes
 from docx import Document
-import io
-from PIL import Image
-import re
+import os
+import tempfile
 
-# Fungsi sanitasi teks agar aman dimasukkan ke dokumen Word
-def sanitize_text(text):
-    text = text.replace('\x00', '')  # Hapus NULL byte
-    text = re.sub(r'[\x01-\x08\x0b-\x1f\x7f]', '', text)  # Hapus karakter kontrol
-    return text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
+st.set_page_config(page_title="PDF ke Word Converter", layout="centered")
 
-# Konfigurasi halaman Streamlit
-st.set_page_config(page_title="PDF / Gambar ke Word", layout="centered")
+st.title("📄 PDF ke Word Converter (Preview + Pilih Halaman/Teks)")
 
-# Header cantik
-st.markdown("""
-<h1 style="text-align: center; color: #2E8B57;">📄 PDF / Gambar ➜ Word Converter</h1>
-<p style="text-align: center; font-size: 18px;">Mudah mengubah file <strong>PDF, JPG, PNG</strong> menjadi <strong>Word (.docx)</strong>!</p>
-<hr>
-""", unsafe_allow_html=True)
+uploaded_file = st.file_uploader("Unggah file PDF kamu di sini", type=["pdf"])
 
-# Upload
-st.markdown("### 📁 Unggah File")
-uploaded_file = st.file_uploader("Pilih file PDF, JPG, atau PNG untuk dikonversi.", type=["pdf", "jpg", "jpeg", "png"])
+if uploaded_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        tmp_pdf_path = tmp_file.name
 
-# OCR info
-st.markdown("#### 🧠 Apakah ini file hasil scan atau gambar?")
-use_ocr = st.checkbox("Aktifkan OCR (untuk file hasil scan/foto/gambar)", value=False)
-st.caption("✅ Gunakan OCR jika file hasil scan atau tidak bisa disalin teksnya.")
+    with pdfplumber.open(tmp_pdf_path) as pdf:
+        total_pages = len(pdf.pages)
+        st.info(f"📄 File memiliki {total_pages} halaman.")
 
-st.markdown("---")
-
-# Tombol konversi
-if uploaded_file and st.button("🔁 Convert to Word"):
-    doc = Document()
-    file_name = uploaded_file.name.lower()
-
-    try:
-        # Gambar
-        if file_name.endswith((".jpg", ".jpeg", ".png")):
-            st.info("📷 Memproses gambar dengan OCR...")
-            image = Image.open(uploaded_file)
-            text = pytesseract.image_to_string(image)
-            clean_text = sanitize_text(text)
-            doc.add_paragraph(clean_text)
-            st.success("✅ Konversi gambar selesai!")
-
-        # PDF
-        elif file_name.endswith(".pdf"):
-            if use_ocr:
-                st.info("📄 Memproses PDF dengan OCR...")
-                images = convert_from_bytes(uploaded_file.read())
-                for i, img in enumerate(images):
-                    text = pytesseract.image_to_string(img)
-                    clean_text = sanitize_text(text)
-                    doc.add_paragraph(clean_text)
-                    st.success(f"OCR halaman {i+1} selesai")
-            else:
-                st.info("📄 Mengekstrak teks langsung dari PDF...")
-                uploaded_file.seek(0)
-                with pdfplumber.open(uploaded_file) as pdf:
-                    for i, page in enumerate(pdf.pages):
-                        text = page.extract_text()
-                        if text:
-                            clean_text = sanitize_text(text)
-                            doc.add_paragraph(clean_text)
-                        st.success(f"Ekstraksi halaman {i+1} selesai")
-
-        else:
-            st.warning("❌ Jenis file tidak didukung.")
-            st.stop()
-
-        # Simpan ke file .docx
-        buffer = io.BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-
-        # Nama file output
-        file_base = uploaded_file.name.rsplit(".", 1)[0]
-        output_filename = f"{file_base} (konversi).docx"
-
-        # Download button
-        st.download_button(
-            label="📥 Download Word File",
-            data=buffer,
-            file_name=output_filename,
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        selected_pages = st.multiselect(
+            "Pilih halaman yang ingin dikonversi:",
+            options=list(range(1, total_pages + 1)),
+            default=list(range(1, total_pages + 1)),
         )
 
-    except Exception as e:
-        st.error(f"🚫 Terjadi kesalahan saat konversi: {e}")
+        if selected_pages:
+            all_extracted_text = []
+            for page_num in selected_pages:
+                page = pdf.pages[page_num - 1]
+                text = page.extract_text()
+                if text:
+                    all_extracted_text.append((page_num, text.strip()))
+                else:
+                    all_extracted_text.append((page_num, "[Halaman kosong atau tidak bisa dibaca]"))
+
+            st.markdown("### 🔍 Pratinjau & Pilih Teks")
+            selected_text = []
+
+            for page_num, text in all_extracted_text:
+                with st.expander(f"Halaman {page_num}"):
+                    paragraphs = text.split("\n")
+                    for i, para in enumerate(paragraphs):
+                        if st.checkbox(f"[Hal. {page_num}] {para}", key=f"{page_num}-{i}"):
+                            selected_text.append(para)
+
+            if selected_text:
+                if st.button("📥 Konversi dan Unduh Word"):
+                    doc = Document()
+                    for para in selected_text:
+                        doc.add_paragraph(para)
+
+                    output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
+                        doc.save(tmp_docx.name)
+                        with open(tmp_docx.name, "rb") as f:
+                            st.download_button("⬇️ Unduh Hasil Word", data=f, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        else:
+            st.warning("Silakan pilih minimal satu halaman.")
+else:
+    st.info("Silakan unggah file PDF terlebih dahulu.")
