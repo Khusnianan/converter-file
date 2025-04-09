@@ -7,20 +7,24 @@ from PIL import Image
 import os
 import tempfile
 from io import BytesIO
-from docx2pdf import convert
-import base64
 
 st.set_page_config(page_title="PDF/Gambar ke Word Converter", layout="centered")
 
-st.title("📄 PDF/Gambar ke Word Converter (dengan Preview Word dan Seleksi)")
+st.title("📄 PDF/Gambar ke Word Converter (dengan Preview & Seleksi Teks)")
 
 menu = st.radio("Pilih tipe file yang ingin dikonversi:", ["PDF", "Gambar (OCR)"])
 
-def show_pdf(file_path):
-    with open(file_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000" type="application/pdf"></iframe>'
-    st.markdown(pdf_display, unsafe_allow_html=True)
+def display_docx_content(doc_buffer):
+    from docx import Document
+    from docx.opc.exceptions import PackageNotFoundError
+    try:
+        doc = Document(doc_buffer)
+        st.markdown("### 📄 Pratinjau Isi Dokumen Word")
+        for para in doc.paragraphs:
+            if para.text.strip():
+                st.write(para.text)
+    except PackageNotFoundError:
+        st.error("Gagal membuka dokumen Word untuk pratinjau.")
 
 if menu == "PDF":
     uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
@@ -65,25 +69,15 @@ if menu == "PDF":
                     for para in selected_text:
                         doc.add_paragraph(para)
 
-                    docx_buffer = BytesIO()
-                    doc.save(docx_buffer)
-                    docx_buffer.seek(0)
-
-                    # Save to temp file to convert to PDF for preview
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
-                        tmp_docx.write(docx_buffer.getvalue())
-                        tmp_docx_path = tmp_docx.name
-
-                    tmp_pdf_preview_path = tmp_docx_path.replace(".docx", ".pdf")
-                    convert(tmp_docx_path, tmp_pdf_preview_path)
+                    preview_buffer = BytesIO()
+                    doc.save(preview_buffer)
+                    preview_buffer.seek(0)
 
                     output_name = os.path.splitext(uploaded_file.name)[0] + " (konversi).docx"
-                    st.download_button("⬇️ Unduh Hasil Word", data=docx_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                    st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-                    st.markdown("### 📄 Pratinjau Dokumen Word (dalam bentuk PDF)")
-                    show_pdf(tmp_pdf_preview_path)
-                else:
-                    st.warning("Tidak ada teks yang dipilih untuk dikonversi.")
+                    # Tampilkan pratinjau isi Word
+                    display_docx_content(preview_buffer)
             else:
                 st.warning("Silakan pilih minimal satu halaman.")
 
@@ -110,22 +104,12 @@ elif menu == "Gambar (OCR)":
             for para in selected_text:
                 doc.add_paragraph(para)
 
-            docx_buffer = BytesIO()
-            doc.save(docx_buffer)
-            docx_buffer.seek(0)
-
-            # Save to temp file to convert to PDF for preview
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp_docx:
-                tmp_docx.write(docx_buffer.getvalue())
-                tmp_docx_path = tmp_docx.name
-
-            tmp_pdf_preview_path = tmp_docx_path.replace(".docx", ".pdf")
-            convert(tmp_docx_path, tmp_pdf_preview_path)
+            preview_buffer = BytesIO()
+            doc.save(preview_buffer)
+            preview_buffer.seek(0)
 
             output_name = os.path.splitext(uploaded_image.name)[0] + " (konversi).docx"
-            st.download_button("⬇️ Unduh Hasil Word", data=docx_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            st.download_button("⬇️ Unduh Hasil Word", data=preview_buffer, file_name=output_name, mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-            st.markdown("### 📄 Pratinjau Dokumen Word (dalam bentuk PDF)")
-            show_pdf(tmp_pdf_preview_path)
-        else:
-            st.warning("Tidak ada teks yang dipilih untuk dikonversi.")
+            # Tampilkan pratinjau isi Word
+            display_docx_content(preview_buffer)
