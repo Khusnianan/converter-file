@@ -34,35 +34,40 @@ st.caption("✅ Gunakan OCR jika file hasil scan atau tidak bisa disalin teksnya
 
 st.markdown("---")
 
-# Tombol konversi
-if uploaded_file and st.button("🔁 Convert to Word"):
-    doc = Document()
+selected_pages = []
+
+if uploaded_file:
     file_name = uploaded_file.name.lower()
 
-    try:
-        # Gambar
-        if file_name.endswith((".jpg", ".jpeg", ".png")):
-            st.info("📷 Memproses gambar dengan OCR...")
-            image = Image.open(uploaded_file)
-            text = pytesseract.image_to_string(image)
-            clean_text = sanitize_text(text)
-            doc.add_paragraph(clean_text)
-            st.success("✅ Konversi gambar selesai!")
+    # Jika file PDF, tampilkan menu pilihan halaman
+    if file_name.endswith(".pdf"):
+        uploaded_file.seek(0)
+        with pdfplumber.open(uploaded_file) as pdf:
+            total_pages = len(pdf.pages)
+            st.info(f"📄 File memiliki {total_pages} halaman.")
+            selected_pages = st.multiselect(
+                "Pilih halaman yang ingin dikonversi:",
+                options=list(range(1, total_pages + 1)),
+                default=list(range(1, total_pages + 1)),
+                key='selected_pages'
+            )
 
-        # PDF
-        elif file_name.endswith(".pdf"):
-            uploaded_file.seek(0)
-            with pdfplumber.open(uploaded_file) as pdf:
-                total_pages = len(pdf.pages)
-                st.info(f"📄 File memiliki {total_pages} halaman.")
+    # Tombol konversi muncul setelah upload dan input selesai
+    if st.button("🔁 Convert to Word"):
+        doc = Document()
 
-                # Pilih halaman yang ingin dikonversi
-                selected_pages = st.multiselect(
-                    "Pilih halaman yang ingin dikonversi:",
-                    options=list(range(1, total_pages + 1)),
-                    default=list(range(1, total_pages + 1)),
-                )
+        try:
+            # Gambar
+            if file_name.endswith((".jpg", ".jpeg", ".png")):
+                st.info("📷 Memproses gambar dengan OCR...")
+                image = Image.open(uploaded_file)
+                text = pytesseract.image_to_string(image)
+                clean_text = sanitize_text(text)
+                doc.add_paragraph(clean_text)
+                st.success("✅ Konversi gambar selesai!")
 
+            # PDF
+            elif file_name.endswith(".pdf"):
                 if not selected_pages:
                     st.warning("⚠️ Silakan pilih minimal satu halaman.")
                     st.stop()
@@ -70,7 +75,7 @@ if uploaded_file and st.button("🔁 Convert to Word"):
                 if use_ocr:
                     st.info("📄 Memproses PDF dengan OCR...")
                     try:
-                        uploaded_file.seek(0)  # pastikan file dibaca ulang
+                        uploaded_file.seek(0)
                         images = convert_from_bytes(
                             uploaded_file.read(),
                             first_page=min(selected_pages),
@@ -96,26 +101,26 @@ if uploaded_file and st.button("🔁 Convert to Word"):
                                 with st.expander(f"Pratinjau Halaman {page_num}"):
                                     st.code(clean_text)
 
-        else:
-            st.warning("❌ Jenis file tidak didukung.")
-            st.stop()
+            else:
+                st.warning("❌ Jenis file tidak didukung.")
+                st.stop()
 
-        # Simpan ke file .docx
-        buffer = io.BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
+            # Simpan ke file .docx
+            buffer = io.BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
 
-        # Nama file output
-        file_base = uploaded_file.name.rsplit(".", 1)[0]
-        output_filename = f"{file_base} (konversi).docx"
+            # Nama file output
+            file_base = uploaded_file.name.rsplit(".", 1)[0]
+            output_filename = f"{file_base} (konversi).docx"
 
-        # Download button
-        st.download_button(
-            label="📥 Download Word File",
-            data=buffer,
-            file_name=output_filename,
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        )
+            # Download button
+            st.download_button(
+                label="📥 Download Word File",
+                data=buffer,
+                file_name=output_filename,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
 
-    except Exception as e:
-        st.error(f"🚫 Terjadi kesalahan saat konversi: {e}")
+        except Exception as e:
+            st.error(f"🚫 Terjadi kesalahan saat konversi: {e}")
