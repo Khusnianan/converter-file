@@ -46,6 +46,11 @@ def checkbox_group(label, options, default=[], key_prefix=""):
             result.append(option)
     return result
 
+def extract_text_from_image(image):
+    text = pytesseract.image_to_string(image)
+    paragraphs = [para for para in text.split("\n") if para.strip()]
+    return paragraphs
+
 if menu == "PDF":
     uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
 
@@ -69,10 +74,14 @@ if menu == "PDF":
                 for page_num in selected_pages:
                     page = pdf.pages[page_num - 1]
                     text = page.extract_text()
-                    if text:
-                        all_extracted_text.append((page_num, text.strip()))
-                    else:
-                        all_extracted_text.append((page_num, "[Halaman kosong atau tidak bisa dibaca]"))
+                    if not text:
+                        # Coba OCR dari gambar halaman
+                        with fitz.open(tmp_pdf_path) as doc:
+                            pix = doc.load_page(page_num - 1).get_pixmap()
+                            image = Image.open(BytesIO(pix.tobytes()))
+                            ocr_text = pytesseract.image_to_string(image)
+                            text = ocr_text or "[Halaman kosong atau tidak bisa dibaca]"
+                    all_extracted_text.append((page_num, text.strip()))
 
                 st.markdown("### 🔍 Pratinjau & Pilih Teks")
                 selected_text = []
@@ -108,11 +117,9 @@ elif menu == "Gambar (OCR)":
         image = Image.open(uploaded_image)
         st.image(image, caption="Gambar yang diunggah", use_column_width=True)
 
-        text = pytesseract.image_to_string(image)
+        paragraphs = extract_text_from_image(image)
 
         st.markdown("### 🔍 Pratinjau Teks Hasil OCR")
-        paragraphs = [para for para in text.split("\n") if para.strip()]
-
         selected_text = checkbox_group("Pilih teks yang ingin dikonversi:", paragraphs, key_prefix="ocr")
 
         if selected_text:
