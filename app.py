@@ -26,6 +26,23 @@ def display_docx_content(doc_buffer):
     except PackageNotFoundError:
         st.error("Gagal membuka dokumen Word untuk pratinjau.")
 
+def checkbox_group(label, options, default=[], key_prefix=""):
+    st.markdown(f"**{label}**")
+    all_state = st.checkbox("Pilih Semua", key=key_prefix + "_all")
+    clear_state = st.checkbox("Kosongkan Semua", key=key_prefix + "_none")
+    result = []
+    for i, option in enumerate(options):
+        option_key = f"{key_prefix}_{i}"
+        if all_state:
+            checked = True
+        elif clear_state:
+            checked = False
+        else:
+            checked = option in default
+        if st.checkbox(option, key=option_key, value=checked):
+            result.append(option)
+    return result
+
 if menu == "PDF":
     uploaded_file = st.file_uploader("Unggah file PDF", type=["pdf"])
 
@@ -60,9 +77,9 @@ if menu == "PDF":
                 for page_num, text in all_extracted_text:
                     with st.expander(f"Halaman {page_num}"):
                         paragraphs = text.split("\n")
-                        for i, para in enumerate(paragraphs):
-                            if st.checkbox(f"[Hal. {page_num}] {para}", key=f"{page_num}-{i}"):
-                                selected_text.append(para)
+                        options = [f"[Hal. {page_num}] {para}" for para in paragraphs if para.strip()]
+                        chosen = checkbox_group("Teks dari halaman ini:", options, key_prefix=f"p{page_num}")
+                        selected_text.extend(chosen)
 
                 if selected_text:
                     doc = Document()
@@ -91,13 +108,9 @@ elif menu == "Gambar (OCR)":
         text = pytesseract.image_to_string(image)
 
         st.markdown("### 🔍 Pratinjau Teks Hasil OCR")
-        paragraphs = text.split("\n")
-        selected_text = []
+        paragraphs = [para for para in text.split("\n") if para.strip()]
 
-        for i, para in enumerate(paragraphs):
-            if para.strip():
-                if st.checkbox(para, key=f"ocr-{i}"):
-                    selected_text.append(para)
+        selected_text = checkbox_group("Pilih teks yang ingin dikonversi:", paragraphs, key_prefix="ocr")
 
         if selected_text:
             doc = Document()
