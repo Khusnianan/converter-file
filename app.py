@@ -71,7 +71,8 @@ if uploaded_file and st.button("🔁 Convert to Word"):
         st.download_button(
             label="📥 Download Word File",
             data=buffer,
-            file_name="hasil_konversi.docx",
+            file_base = uploaded_file.name.rsplit(".", 1)[0]
+            file_name=f"{file_base} (konversi).docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
