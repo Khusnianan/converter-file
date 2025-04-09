@@ -5,7 +5,16 @@ from pdf2image import convert_from_bytes
 from docx import Document
 import io
 from PIL import Image
+import re
 
+# Fungsi sanitasi teks agar aman dimasukkan ke dokumen Word
+def sanitize_text(text):
+    # Hapus NULL byte dan karakter kontrol (selain newline dan tab)
+    text = text.replace('\x00', '')
+    text = re.sub(r'[\x01-\x08\x0b-\x1f\x7f]', '', text)
+    return text.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
+
+# Konfigurasi halaman Streamlit
 st.set_page_config(page_title="PDF / Gambar ke Word", layout="centered")
 st.title("📄 PDF / Gambar ke Word Converter")
 st.write("Upload file PDF atau gambar (JPG/PNG), lalu konversi ke file Word (.docx) secara otomatis.")
@@ -20,12 +29,12 @@ if uploaded_file and st.button("🔁 Convert to Word"):
     file_name = uploaded_file.name.lower()
 
     try:
-        # Proses Gambar (JPG/PNG)
+        # Proses Gambar
         if file_name.endswith((".jpg", ".jpeg", ".png")):
             st.info("📷 Menggunakan OCR untuk gambar...")
             image = Image.open(uploaded_file)
             text = pytesseract.image_to_string(image)
-            clean_text = text.encode('utf-8', errors='ignore').decode('utf-8')
+            clean_text = sanitize_text(text)
             doc.add_paragraph(clean_text)
             st.success("✅ Konversi gambar selesai!")
 
@@ -36,7 +45,7 @@ if uploaded_file and st.button("🔁 Convert to Word"):
                 images = convert_from_bytes(uploaded_file.read())
                 for i, img in enumerate(images):
                     text = pytesseract.image_to_string(img)
-                    clean_text = text.encode('utf-8', errors='ignore').decode('utf-8')
+                    clean_text = sanitize_text(text)
                     doc.add_paragraph(clean_text)
                     st.success(f"OCR halaman {i+1} selesai")
             else:
@@ -46,7 +55,7 @@ if uploaded_file and st.button("🔁 Convert to Word"):
                     for i, page in enumerate(pdf.pages):
                         text = page.extract_text()
                         if text:
-                            clean_text = text.encode('utf-8', errors='ignore').decode('utf-8')
+                            clean_text = sanitize_text(text)
                             doc.add_paragraph(clean_text)
                         st.success(f"Ekstraksi halaman {i+1} selesai")
 
