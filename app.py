@@ -69,13 +69,22 @@ if uploaded_file and st.button("🔁 Convert to Word"):
 
                 if use_ocr:
                     st.info("📄 Memproses PDF dengan OCR...")
-                    images = convert_from_bytes(uploaded_file.read(), first_page=min(selected_pages), last_page=max(selected_pages))
-                    for i, page_num in enumerate(selected_pages):
-                        text = pytesseract.image_to_string(images[i])
-                        clean_text = sanitize_text(text)
-                        doc.add_paragraph(clean_text)
-                        with st.expander(f"Pratinjau Halaman {page_num}"):
-                            st.code(clean_text)
+                    try:
+                        uploaded_file.seek(0)  # pastikan file dibaca ulang
+                        images = convert_from_bytes(
+                            uploaded_file.read(),
+                            first_page=min(selected_pages),
+                            last_page=max(selected_pages)
+                        )
+                        for i, page_num in enumerate(selected_pages):
+                            text = pytesseract.image_to_string(images[i])
+                            clean_text = sanitize_text(text)
+                            doc.add_paragraph(clean_text)
+                            with st.expander(f"Pratinjau Halaman {page_num}"):
+                                st.code(clean_text)
+                    except Exception as e:
+                        st.error(f"🚫 Gagal melakukan OCR pada PDF: {e}")
+                        st.stop()
                 else:
                     uploaded_file.seek(0)
                     with pdfplumber.open(uploaded_file) as pdf:
